@@ -40,11 +40,6 @@ for testID=1:5
     sensorNoise = 0.25*0.6351/180*pi;
     actuatorNoise = 0.01.*reshape(targetImpedance,3,4)';
     
-
-%     Finaltrials = 0;
-%     FinalStep = 0;
-%     SuccessCnt=[];
-%     trackingCnt= 0;
     sd = testID;
     rng(sd,'twister');
     initImpedance = InitialImpedance(testID, :);
@@ -207,50 +202,9 @@ for testID=1:5
                     break;
                 end
             end
-%             if cnt > 10
-%                 if Finaltrials == 0
-%                     if min(sum(statusHist(end-9:end,:))>6) >=1
-%                         disp(['Trial # ' int2str(trial) ' has succeed in ' int2str(steps) ' steps ']);
-%                         succADP=[succADP;ADP_agent];
-%                         Finaltrials=Finaltrials+1;  
-%                         SuccessCnt=[SuccessCnt,cnt];
-%                         trackingCnt=0;
-%                         intactImIndex_new = randi([1,5],1,1);
-%                         while intactImIndex == intactImIndex_new
-%                             intactImIndex_new = randi([1,5],1,1);
-%                         end
-%                         intactImIndex = intactImIndex_new;
-%                         ImIndexHist=[ImIndexHist;cnt intactImIndex];
-%                         paceflag=true;
-%                         FinalStep=0;
-%                     end
-%                 else
-%                     FinalStep = FinalStep+1;
-%                     if min(sum(statusHist(end-9:end,:))>6) >=1 && FinalStep>11
-%                         disp(['Trial # ' int2str(trial) ' has succeed in ' int2str(steps) ' steps ']);
-%                         succADP=[succADP;ADP_agent];
-%                         SuccessCnt=[SuccessCnt,cnt];
-%                         if Finaltrials <3
-%                             trackingCnt=0;
-%                             intactImIndex_new = randi([1,5],1,1);
-%                             while intactImIndex == intactImIndex_new
-%                                 intactImIndex_new = randi([1,5],1,1);
-%                             end
-%                             intactImIndex = intactImIndex_new;
-%                             ImIndexHist=[ImIndexHist;cnt intactImIndex];
-%                             paceflag=true;
-%                             Finaltrials=Finaltrials+1;
-%                             FinalStep=0;
-%                         else
-%                             Finaltrials=Finaltrials+1;
-%                             break;
-%                         end
-%                     end
-%                 end
-%             end
 
         end %end of steps
-%         trial = trial+1;
+
         if cnt > 10
     %         if min(status) >= 1
             if min(sum(statusHist(end-9:end,:))>7) >=1 && Finaltrials==4
