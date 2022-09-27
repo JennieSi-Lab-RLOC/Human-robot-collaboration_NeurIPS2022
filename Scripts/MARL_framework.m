@@ -78,7 +78,9 @@ for testID=5
     HumanControls=load('your_own_training_Data.mat'); % please load the trained human controller here
 
     Human_ADP=HumanControls.ADP_agent;
+    # initialize marl agent
     ADP_agent_game = MARL_multi(nstate_x, naction, naction_i,annhidden, cnnhidden,Bias);
+    # initialize human control
     ADP_agent_h = dHDP_multi(nstate_h, naction, annhidden, cnnhidden,Bias);
    
     
@@ -86,8 +88,7 @@ for testID=5
     rewardhist=[];
     ADP_agent_game = ADP_agent_game.setControlType(CTL_TYPE);
     ADP_agent_h = ADP_agent_h.setControlType(CTL_TYPE);
-%     ADP_agent_i = ADP_agent_i.setControlType(CTL_TYPE);
-%     OpenSim_main_Qlearning;
+
 %%
 
     runs=1;
@@ -102,7 +103,6 @@ for testID=5
     mu=0;
     batchSize=1;
     
-%     ADPHist=[ADPHist;ADP_agent_game];
     for  trial = 1:MaxTr
         failure=0;
         failReason=0;
