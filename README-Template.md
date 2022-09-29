@@ -1,6 +1,6 @@
 # Project Title
 
-Simple overview of use/purpose.
+Human-Robotic Prosthesis as Collaborating Agents for Symmetrical Walking.
 
 ## Description
 
