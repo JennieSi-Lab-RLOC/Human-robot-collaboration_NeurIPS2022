@@ -21,7 +21,7 @@ Execute the script 'Single_agent.m' under Scripts folder
 
 Contributors names and contact info
 
-Ruofan Wu
-Xiang Gao
+Ruofan Wu,
+Xiang Gao,
 Junmin Zhong
 
