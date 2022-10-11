@@ -3,10 +3,8 @@
 Human-Robotic Prosthesis as Collaborating Agents for Symmetrical Walking.
 
 ## Description
+This is a implementation of lower power prosthesis simulation based on OpenSim simulating environment
 
-
-
-## Getting Started
 
 ### Dependencies
 
