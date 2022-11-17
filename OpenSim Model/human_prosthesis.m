@@ -50,17 +50,10 @@ classdef human_prosthesis
         bodyWeight;
         height;
         
-        grf;
-        StepAngle; 
-        
         profile;                % knee profile
-        profile_l;                % knee profile
         profileInit;            % initial knee profile
         transition;             % transition timing
-        transition_l;
         feature;                % profile feature(duration, peakvalue)
-        StanceTime;
-        StepLength;
         featurePast;            % profile feature of last step
         featureTarget;          % target feature(duration, peakvalue)
         featureState;           % feature state(featureRaw - featureTarget; duration error, peak error)
@@ -69,8 +62,6 @@ classdef human_prosthesis
         performanceStateNorm;   % performance state normalization( feature state normalization )       
         performanceState;       % (featureState, featureState-featureStatePast)
         
-        intactFeature;
-        prosthesisFeature;
         %% reward varibles   
         desire;         % desire value
         sindex;         % target state index
@@ -102,7 +93,7 @@ classdef human_prosthesis
             % initial impedance featureTarget and model path parameters
             if nargin == 0
                 tfolder = cd(cd('.'));
-                mpath = [tfolder,'\OpenSim Model\WalkerModel_RK_Torque_dual_ba_short.osim'];                
+                mpath = [tfolder,'\OpenSim Model\WalkerModel_RK_Torque_Prescribed.osim'];                
             end
     
             obj.autoFlag = 0;
@@ -132,14 +123,11 @@ classdef human_prosthesis
         function md = initHP(md, impedance, featureTarget)
             %% initial impedance featureTarget and model path parameters
             if nargin == 1
-%                 impedance = [3.5672   0.0775  -0.4162  0.2146  0.0656  -0.0550	0.0921  0.0106  -1.1285 0.0489  0.0057  -0.2792];
-                impedance = [2.000    0.1000   -0.3300    0.2200    0.0781    -0.0495    0.0400    0.0052   -1.0770    0.0453    0.0058   -0.2798];
-                featureTarget =  [ 0 0 0 0 0 0 0 0];
+                impedance = [3.5672   0.0775  -0.4162  0.2146  0.0656  -0.0550	0.0921  0.0106  -1.1285 0.0489  0.0057  -0.2792];
+                featureTarget = [-0.3033    0.1100   -0.0356    0.2733   -1.0174    0.3100   -0.0391    0.2567];
             elseif nargin == 2
-%                 featureTarget = [-0.3033    0.1100   -0.0356    0.2733   -1.0174    0.3100   -0.0391    0.2567];
-                featureTarget =  [ 0 0 0 0 0 0 0 0];
-%                 this is the old one from Yue:
-%                 featureTarget = [-0.3038    0.1133   -0.0461    0.2733   -1.0244    0.3133   -0.0309    0.2500];
+                featureTarget = [-0.3033    0.1100   -0.0356    0.2733   -1.0174    0.3100   -0.0391    0.2567];
+
             end
             % resize impedance parameters for a matrix format as
             % impedancematrix
@@ -169,7 +157,7 @@ classdef human_prosthesis
             md.uMag = diag(md.uMagScale)*impedancemaxtrix;                         %action magnitude
             
             %% state initialization
-            [md.profile,md.profile_l, md.transition,md.transition_l,md.grf,md.StepAngle] = Lowerlimb_Motion_dual(md.modelPath, impedance);
+            [md.profile, md.transition] = Lowerlimb_Motion(md.modelPath, impedance);
             md.profileInit = md.profile;
             md = md.getFeature();
             md.featurePast = md.feature;
@@ -177,12 +165,12 @@ classdef human_prosthesis
             
             %% reward initialization
             deviation =  md.feature - md.featureTarget;
-            md.rewardtype = 1;                              %rewardtype: 1 for smooth reward, 0 for not smooth(1 or 0.1) reward
+            md.rewardtype = 0;                              %rewardtype: 1 for smooth reward, 0 for not smooth(1 or 0.1) reward
             md.costsucceed = 0;
-            md.costconstant = 1;                            % cost of states between splus and sminus
+            md.costconstant = 0;                            % cost of states between splus and sminus
             md.costfailure = 1; 
             md.splus = 0.02*ones(size(deviation));
-            md.splus(:,1) = 0.0175*1.5;                      % +- 1 degree success
+            md.splus(:,1) = 0.0175;                      % +- 1 degree success
             if md.autoFlag
                 md.sminus = abs(deviation);             % limitation range is 2*md.featureState(Initial featureState)
                 md.sminus(md.sminus <= md.splus) = md.splus(md.sminus <= md.splus);
@@ -190,14 +178,13 @@ classdef human_prosthesis
             else
                 safedegree1sd =[7,5,6,4]'; % [6,5,7,4];             % fixed failure range
                 saferadian = 2*safedegree1sd*3.14/180;
-                %safetime = 0.1*ones(4,1);
+
                 targetD = [0.1133    0.2733    0.3133    0.2500]';
-%                 safetime = 0.3*targetD;
-                safetime = [0.12; 0.12 ;0.12; 0.12];
+
+                safetime = [0.2; 0.2 ;0.2; 0.2];
                 md.sminus = [saferadian, safetime];
             end         
-            md.w = atanh(sqrt(0.95))./md.sminus;                 % if rewardtype is one, uncomment this line.
-%             md.w = 1./md.splus;
+            md.w = atanh(sqrt(0.95))./md.splus;                 % if rewardtype is one, uncomment this line.
             
             ft = md.sminus;
             md.performanceStateNorm = [ft,ft*2];
@@ -237,28 +224,16 @@ classdef human_prosthesis
 %                end
 %             end
             impedancev = reshape(md.impedance', 1, numel(md.impedance));
-            [md.profile,md.profile_l, md.transition,md.transition_l,md.grf,md.StepAngle] = Lowerlimb_Motion_dual(md.modelPath, impedancev);
+            [md.profile, md.transition] = Lowerlimb_Motion(md.modelPath, impedancev);
             md = md.getFeature();
             md.featurePast = md.feature;
             deviation =  md.feature - md.featureTarget;
             
             %% auto flag is one for auto scaling state magnitude
-%             if md.autoFlag
-%                 for i = 1:md.phaseCnt
-%                     if md.status(i) == -1
-%                         md.splus(i, :) = 0.01*ones(size(deviation(i,:)));
-%                         md.sminus(i, :) = abs(deviation(i, :));             % limitation range is 2*md.featureState(Initial featureState)
-%                         md.sminus(md.sminus <= md.splus) = md.splus(md.sminus <= md.splus);
-%                         md.sminus(i,:) = md.sminus(i,:)*2;
-%                         break;
-%                     end
-%                 end
-%                 ft = md.sminus;
-%                 md.performanceStateNorm = [ft,ft*2];
-%             end
+
             derivative = md.feature - md.featurePast;
             md.performanceState = [deviation, derivative]; 
-            md = md.reward(md.feature - md.featureTarget);     
+                 
             md.subEvalCnt = 0;              
             md.autoDeviation =  md.performanceState(:,1:2);
             md.subCost = zeros(4,2);
@@ -278,13 +253,6 @@ classdef human_prosthesis
             md.Dmav = md.Dmav + abs(md.performanceState(:,4));          % mean absolute value of De'
             md.Pmean = md.Pmean + md.performanceState(:,1); 
             md.Dmean = md.Dmean + md.performanceState(:,2); 
-%             % get minimum peak error and duration error
-%             if md.Pmin > abs(md.performanceState(:,1))
-%                 md.Pmin = abs(md.performanceState(:,1));
-%             end
-%             if md.Dmin > abs(md.performanceState(:,2))
-%                 md.Dmin = abs(md.performanceState(:,2));
-%             end
 
 
             status = zeros(4,1);
@@ -392,124 +360,6 @@ classdef human_prosthesis
             end      
         end
         
-         %% without autoscaling
-        function [md, status]= subEvaluate_NFQ(md)
-            md.subEvalCnt = md.subEvalCnt + 1;
-            md.Pmav = md.Pmav + md.performanceState(:,3);          % sum of Pe' -- Pe(5) - Pe(1)
-            md.Dmav = md.Dmav + md.performanceState(:,4);          % sum of De' -- De(5) - De(1)
-%             md.Pmean = md.Pmean + md.performanceState(:,1); 
-%             md.Dmean = md.Dmean + md.performanceState(:,2); 
-            % get minimum peak error and duration error
-            if md.Pmin > abs(md.performanceState(:,3))
-                md.Pmin = abs(md.performanceState(:,3));
-            end
-            if md.Dmin > abs(md.performanceState(:,4))
-                md.Dmin = abs(md.performanceState(:,4));
-            end
-            status = zeros(4,1);
-            % Evaluate the system when subEvalCnt is greater than 5.
-            if md.subEvalCnt >= 5
-%                 error = md.autoDeviation - md.performanceState(:,1:2);
-%                 grad = error.*md.performanceState(:,1:2);
-%                 md.Pmav = md.Pmav./md.subEvalCnt;
-%                 md.Dmav = md.Dmav./md.subEvalCnt;
-%                 md.Pmean = md.Pmean./md.subEvalCnt;
-%                 md.Dmean = md.Dmean./md.subEvalCnt;                
-                Pe = md.performanceState(:,1);
-                De = md.performanceState(:,2);
-                for i = 1:md.phaseCnt
-                    % evaluate peak error
-                    if  abs(Pe(i)) > md.splus(i,1) && abs(Pe(i)) < md.sminus(i,1)
-%                         if abs(error(i,1)) >= md.Pmav(i)                % variation is bigger than the absolute mean value
-                            if sign(md.Pmav(i,1).*md.performanceState(i,1)) >= 0                     % right direction
-                                md.subCost(i,1) = 0;
-                                md.subReward(i,1) = md.subReward(i,1) + 2;
-                            else                                        % wrong direction
-                                md.subCost(i,1) = md.subCost(i,1) + 2;
-                                md.subReward(i,1) = 0;
-                            end
-%                         else                                            % variation is small than the absolute mean value
-%                             if sign(grad(i,1)) >= 0                     % right direction
-%                                 %md.subCost(i,1) = 0;
-%                                 md.subReward(i,1) = md.subReward(i,1) + 1;
-%                             else                                        % wrong direction
-%                                 md.subCost(i,1) = md.subCost(i,1) + 1;
-%                                 %md.subReward(i,1) = 0;
-%                             end 
-%                         end
-                    end
-                    
-                    % evaluate duration error
-                    if  abs(De(i)) > md.splus(i,2) && abs(De(i)) < md.sminus(i,2)
-%                         if abs(error(i,2)) >= md.Dmav(i)                % variation is bigger than the absolute mean value
-                            if sign(md.Dmav(i,1).*md.performanceState(i,2)) >= 0       % right direction
-                                md.subCost(i,2) = 0;
-                                md.subReward(i,2) = md.subReward(i,2) + 4;
-                            else                                        % wrong direction
-                                md.subCost(i,2) = md.subCost(i,2) + 4;
-                                md.subReward(i,2) = 0;
-                            end
-%                         else                                            % variation is small than the absolute mean value
-%                             if sign(grad(i,2)) >= 0                     % right direction
-%                                 %md.subCost(i,2) = 0;
-%                                 md.subReward(i,2) =  md.subReward(i,2) + 1;
-%                             else                                        % wrong direction
-%                                 md.subCost(i,2) = md.subCost(i,2) + 1;
-%                                 %md.subReward(i,2) = 0;
-%                             end 
-%                         end
-                    end
-                    
-                    % when Pmin and Dmin are both in target range, scale
-                    % down the uMag.
-                    if  abs(md.Pmin(i)) <= md.splus(i,1) &&  abs(md.Dmin(i)) <= md.splus(i,2) && md.savecnt >= 50 %sum(md.status(i,:)) == 2 
-                        md.subCost(i,:) = [0, 0];
-                        md.subReward(i,:) = [0, 0];
-                        status(i) = 1;
-%                         % scale down uMag with lower limitation
-%                         md.uMagScale(i) = md.uMagScale(i)*0.5;
-%                         if md.uMagScale(i) < 0.001
-%                              md.uMagScale(i) = 0.001;
-%                         end
-% %                         md.uMag(i,:) =  md.uMagScale(i)*md.initialImpedance(i,:);
-%                         md.uMag(i,:) =  md.uMagScale(i)*md.targetImpedance(i,:);
-                    end 
-               
-                    % scale up the uMag when reward score is greater than 4
-                    if sum(md.subReward(i,:)) >= 4
-                        md.subReward(i,:) = [0, 0];
-                        status(i) = 0.5;
-%                         % scale up uMag with higher limitation
-%                         md.uMagScale(i) = md.uMagScale(i)*1.2;
-%                         if md.uMagScale(i) > 0.1
-%                              md.uMagScale(i) = 0.1;
-%                         end
-% %                         md.uMag(i,:) =  md.uMagScale(i)*md.initialImpedance(i,:);
-%                         md.uMag(i,:) =  md.uMagScale(i)*md.targetImpedance(i,:);
-                    end
-                    
-                    % sub reinforcement when cost score is greater than 4
-                    if sum(md.subCost(i,:)) >= 4 
-                        md.subCost(i,:) = [0, 0];
-                        status(i) = md.subReinf;
-                        if md.status(i) == 0 && md.subRflag
-                            md.status(i) = md.subReinf;
-                            md.rewards(i) = md.subReinf; % 0.6
-                        end
-                    end
-                end
-                [md.subReward,md.subCost,status]
-
-                md.autoDeviation =  md.performanceState(:,1:2);
-                md.subEvalCnt = 0;
-                md.Pmav = md.Pmav*0;          % mean absolute value of Pe'
-                md.Dmav = md.Dmav*0;          % mean absolute value of De'
-                md.Pmean = md.Pmean*0;
-                md.Dmean = md.Dmean*0;                     
-                md.Pmin = ones(size(md.Pmin));
-                md.Dmin = ones(size(md.Dmin));
-            end      
-        end
         
         %% simulate system under action, which is 4-by-3 matrix
         %   4 phase in one gait cycle
@@ -532,12 +382,12 @@ classdef human_prosthesis
                 impedances = reshape(impedances', 1, numel(impedances));
             end
             
-            [md.profile,md.profile_l, md.transition,md.transition_l,md.grf,md.StepAngle] = Lowerlimb_Motion_dual(md.modelPath, impedances);
+            [md.profile, md.transition] = Lowerlimb_Motion(md.modelPath, impedances);
             md = md.getFeature();
             md = md.getPerformance();
             %
             md = md.reward(md.feature - md.featureTarget);
-%            md = md.subEvaluate(); %Ruofan check the effect of this
+           md = md.subEvaluate();
             
             % save action, performance
             for i = 1 : size(action,1)
@@ -550,7 +400,7 @@ classdef human_prosthesis
             md.rhist= [md.rhist; md.rewards'];
             md.scalehist = [md.scalehist; md.uMagScale'];
             md.savecnt =  md.savecnt + 1;
-            state = md.performanceState(:,1:2) %show state
+            state = md.performanceState
         end
         
         %% 
@@ -565,18 +415,10 @@ classdef human_prosthesis
             state = md.x(:,1:2);
         end
         
-        %% get stance time and step length
-        function [StanceT,StepL,StanceSI,StepSI] = getSymmetry(md)
-            StanceT=md.StanceTime;
-            StepL=md.StepLength;
-            StanceSI=(StanceT(1)-StanceT(2))./(StanceT(1)+StanceT(2));
-            StepSI=(StepL(1)-StepL(2))./(StepL(1)+StepL(2));
-        end
-        
         %% rewardtype: 1 for smooth reward, 0 for not smooth(1 or 0.1) reward    
         function  [md, cost, status]= reward(md, error)
             cost = zeros(size(error));                  %[md.costconstant.*ones(1,size(error,2)); zeros(1,size(error,2))];
-            status = zeros(size(error)) ;
+            status = zeros(size(error));
             if md.rewardtype == 0
                 cost(abs(error) >= md.sminus) = md.costfailure;
                 status(abs(error) >= md.sminus) = -1;
@@ -595,9 +437,8 @@ classdef human_prosthesis
                 % with operational range, give a small cost
                 cost(abs(error) > md.splus & abs(error) < md.sminus) = 0.003;
             end
-            cost = 0.8*cost(:,1)+0.2*cost(:,2);
 %             cost = mean(cost,2);
-%             cost = max(cost, [], 2);
+            cost = max(cost, [], 2);
             status = min(status, [], 2);
             md.rewards = cost;
             md.status = status;
@@ -606,102 +447,36 @@ classdef human_prosthesis
         %% get the feature of the profile along with transition timeing
         % profile starts from heel strike
         % feature - [peakvalue, duration] 4*2 matrix
-        function [md, feature] = getFeature(md, profile,profile_l, transition,transition_l, ts,grf,StepAngle)
+        function [md, feature] = getFeature(md, profile, transition, ts)
             if nargin == 1
                 profile = md.profile;
-                profile_l=md.profile_l;
                 transition = md.transition;
-                transition_l = md.transition_l;
-                ts = linspace(0,2.2,length(profile));             % simulation last for 1s, get time stamp for each point  
-                grf=md.grf;
-                StepAngle=md.StepAngle;
+                ts = linspace(0,1,length(profile));             % simulation last for 1s, get time stamp for each point                
             end
-            featuretmp = ones(2,4);                % initialize feature vector
-%             SI_PE=zeros(1,4);
+            feature = ones(1,8);                % initialize feature vector      
             len = length(profile);              % get profile length
-            transtp=floor(len*transition/2.2);
-            transtp_l=floor(len*transition_l/2.2);
-            
+            transtp=floor(len*transition);            
             % transition points not equal to 5, something bad happens
-            if length(transition) >= 9 && length(transition) <= 10 && length(transition_l) >= 9 && length(transition_l) <= 10
+            if length(transition) >= 5
                 phacut = ceil((transtp(1:end-1)+transtp(2:end))/2);     % split the profile with transition point
-                phacut_l = ceil((transtp_l(1:end-1)+transtp_l(2:end))/2);     % split the profile with transition point
-                [stflex, stfi] = min(profile(phacut(5):phacut(6)));             % stand flexion peak value and time index
-                stfi = stfi+phacut(5);
-                [stext, stei]= max(profile(stfi:phacut(7)));            % stand extension peak value and time index
+                [stflex, stfi] = min(profile(1:phacut(2)));             % stand flexion peak value and time index
+                [stext, stei]= max(profile(   stfi:phacut(3)));            % stand extension peak value and time index
                 stei = stei + stfi - 1;                           
-                [swflex,swfi] = min(profile(stei:phacut(8)));           % swing flexion peak value and time index
+                [swflex,swfi] = min(profile(stei:phacut(4)));           % swing flexion peak value and time index
                 swfi = swfi + stei - 1;
-                if length(phacut) == 8
-                    [swext, swei]= max(profile(swfi:end));
-                else
-                    [swext, swei]= max(profile(swfi:phacut(9)));                  % swing extension peak value and time index
-                end
+                [swext, swei]= max(profile(swfi:end));                  % swing extension peak value and time index
                 swei = swei + swfi - 1;
-                
-                
-%                 phaseDuration=transition(2:end)-transition(1:end-1);
-%                 peakDelay=phaseDuration(5:8);
-                peakDelay = [stfi,stei,swfi,swei];
-                peakDelay=ts(peakDelay)-transition(5);
-                peakDelay(2:end)=peakDelay(2:end)-peakDelay(1:end-1);
-                peakDelay=peakDelay./(transition(9)-transition(5));
+
+                peakDelay=[stfi,stei,swfi,swei];
                 peakValue=[stflex,stext,swflex,swext];
-  
-                [stflex_l, stfi_l] = min(profile_l(phacut_l(3):phacut_l(4)));             % stand flexion peak value and time index
-                stfi_l = stfi_l+phacut_l(3);
-                [stext_l, stei_l]= max(profile_l(stfi_l:phacut_l(5)));            % stand extension peak value and time index
-                stei_l = stei_l + stfi_l - 1;                           
-                [swflex_l,swfi_l] = min(profile_l(stei_l:phacut_l(6)));           % swing flexion peak value and time index
-                swfi_l = swfi_l + stei_l - 1;
-                [swext_l, swei_l]= max(profile_l(swfi_l:phacut_l(7)));                  % swing extension peak value and time index
-                swei_l = swei_l + swfi_l - 1;                
-
-                peakValue_l=[stflex_l,stext_l,swflex_l,swext_l];
-%                 phaseDuration_l=transition_l(2:end)-transition_l(1:end-1);
-%                 peakDelay_l=phaseDuration_l(3:6);
-                peakDelay_l = [stfi_l,stei_l,swfi_l,swei_l];
-                peakDelay_l=ts(peakDelay_l)-transition_l(3);
-                peakDelay_l(2:end)=peakDelay_l(2:end)-peakDelay_l(1:end-1);
-                peakDelay_l=peakDelay_l./(transition_l(7)-transition_l(3));
-                if length(peakValue) == 4 && length(peakValue_l) == 4
-                    featuretmp(1,:) = peakValue-peakValue_l;
-                    featuretmp(2,:) = peakDelay-peakDelay_l;
+                peakDelay = ts(peakDelay);
+                peakDelay(2:end)=peakDelay(2:end)-peakDelay(1:end-1);
+                featuretmp = [peakValue; peakDelay];                
+                if size(featuretmp, 2) == 4
+                    feature = reshape(featuretmp,1,[]);          
                 end
-                md.intactFeature=[peakValue_l peakDelay_l];
-                md.prosthesisFeature=[peakValue peakDelay];
-                
-                LStepP=0.5*(sin(StepAngle(:,1))+sin(StepAngle(:,3)+StepAngle(:,1)))+StepAngle(:,6);
-                RStepP=0.5*(sin(StepAngle(:,2))+sin(StepAngle(:,2)+StepAngle(:,4)))+StepAngle(:,6);
-                [LS_pks,locs_L] = findpeaks(smooth(LStepP-RStepP,10));
-                [RS_pks,locs_R] = findpeaks(smooth(RStepP-LStepP,10));
-                LS_pks=LS_pks(LS_pks>0);
-                RS_pks=RS_pks(RS_pks>0);
-                LStep=LS_pks(2);
-                if locs_R(1)<100
-                    RStep=RS_pks(3);
-                else
-                    RStep=RS_pks(2);
-                end
-                LsT=transition_l(5)-transition_l(3);
-                RsT=transition(7)-transition(5);
-            else
-                featuretmp=ones(2,4); 
-                LStep=1;
-                RStep=0;
-                LsT=1;
-                RsT=0;
             end   
-%             
-            if length(featuretmp)<4
-                featuretmp=ones(2,4);  
-            end
-            
-            md.feature=featuretmp';
-            feature = md.feature;
-            md.StanceTime=[LsT RsT];
-
-            md.StepLength=[LStep RStep];
+            md.feature = reshape(feature, 2, 4)';
         end
         
         %% get the performance state of the human prosthesis system
@@ -721,7 +496,7 @@ classdef human_prosthesis
             if size(impedance,1) == 4
                 impedance = reshape(impedance', 1, numel(impedance));
             end
-            [md.profile,md.profile_l, md.transition,md.transition_l,md.grf,md.StepAngle] = Lowerlimb_Motion_dual(md.modelPath, impedance);
+            [md.profile, md.transition] = Lowerlimb_Motion(md.modelPath, impedance);
             profile = md.profile;
             [~, feature] = md.getFeature();
         end
