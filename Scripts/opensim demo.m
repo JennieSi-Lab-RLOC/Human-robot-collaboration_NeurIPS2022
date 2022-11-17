@@ -32,32 +32,8 @@ profile = zeros(1,100);
 for k = 1:100
   profile(k) = -mean(rawProfile((3*k-2):(3*k)));
 end
-ts = linspace(0,1,length(rawProfile));
-[SIST,SISL]=getSymetryIndex(grfo,StepAngle);
-featuretmp = ones(4,2);                % initialize feature vector
-len = length(rawProfile);              % get profile length
-transtp=floor(len*state);            
-% transition points not equal to 5, something bad happens
-if length(state) >= 5
-    phacut = ceil((transtp(1:end-1)+transtp(2:end))/2);     % split the profile with transition point
-    [stflex, stfi] = min(rawProfile(1:phacut(2)));             % stand flexion peak value and time index
-    [stext, stei]= max(rawProfile(stfi:phacut(3)));            % stand extension peak value and time index
-    stei = stei + stfi - 1;                           
-    [swflex,swfi] = min(rawProfile(stei:phacut(4)));           % swing flexion peak value and time index
-    swfi = swfi + stei - 1;
-    [swext, swei]= max(rawProfile(swfi:end));                  % swing extension peak value and time index
-    swei = swei + swfi - 1;
+  
 
-    peakDelay=[stfi,stei,swfi,swei];
-    peakValue=[stflex,stext,swflex,swext];
-    peakDelay = ts(peakDelay);
-    peakDelay(2:end)=peakDelay(2:end)-peakDelay(1:end-1);
-    featuretmp = [peakValue; peakDelay];                
-%                 if size(featuretmp, 2) == 4
-%                     Angle = reshape(featuretmp,1,[]);          
-%                 end
-    
-end
 % get peak error and duration error as defined in Yue 2016
 % state = state - featureTarget;
 % figure
