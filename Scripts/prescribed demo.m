@@ -39,7 +39,7 @@ for testID=1:5
     
     % model
     
-    mpath = 'H:\Documents\KGQL_OpenSim_wentao\KGQL_OpenSim_2020\OpenSim Model\WalkerModel_RK_Torque_Prescribed.osim';  
+    mpath = 'WalkerModel_RK_Torque_Prescribed.osim';  
     md = human_prosthesis(mpath);
     md = md.initHP(targetImpedance, featureTarget);
     
@@ -67,7 +67,7 @@ for testID=1:5
     Bias = 0;
     
     % create a Qlearning object
-    ADP_agent = Qlearning_multi(nstate, naction, annhidden, cnnhidden,Bias);
+    ADP_agent = dHDP_multi(nstate, naction, annhidden, cnnhidden,Bias);
     ADP_agent = ADP_agent.setControlType(CTL_TYPE);
     
     for runs = 1:MaxRun
